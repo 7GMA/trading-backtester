@@ -1,0 +1,14 @@
+[project]
+name = "trading-prototype"
+version = "0.1.0"
+description = "Trading strategy backtesting with natural language input"
+requires-python = ">=3.9"
+dependencies = [
+    "yfinance>=0.2.36",
+    "duckdb>=0.10.0",
+    "pandas-ta>=0.3.14b1",
+    "pandas>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
