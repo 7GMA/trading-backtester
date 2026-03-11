@@ -131,10 +131,18 @@ def parse_strategy_offline(user_input: str) -> tuple[ParsedStrategy, list[str]] 
     # Try to detect asset
     import re
     asset = "AAPL"
+    # Skip known indicator names and common command words when detecting tickers
+    _skip_words = {
+        "RSI", "MACD", "SMA", "EMA", "ATR", "BB", "VWAP", "STOCH",
+        "AND", "OR", "BUY", "SELL", "WHEN", "IF", "THE", "ON", "FOR",
+        "WITH", "USE", "SET",
+    }
     # Match patterns like "buy AAPL", "kaufe Apple", ticker symbols
-    ticker_match = re.search(r'\b([A-Z]{1,5}(?:-[A-Z]{1,5})?)\b', user_input)
-    if ticker_match:
-        asset = ticker_match.group(1)
+    for ticker_match in re.finditer(r'\b([A-Z]{1,5}(?:-[A-Z]{1,5})?)\b', user_input):
+        candidate = ticker_match.group(1)
+        if candidate not in _skip_words:
+            asset = candidate
+            break
 
     # Common ticker aliases
     aliases = {
