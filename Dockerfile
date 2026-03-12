@@ -2,13 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install dependencies
-COPY pyproject.toml .
-RUN pip install --no-cache-dir \
-    yfinance duckdb pandas-ta pandas \
-    backtesting quantstats plotly matplotlib \
-    anthropic pydantic python-dotenv \
-    streamlit fastapi uvicorn
+# Install dependencies from requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source
 COPY src/ src/
