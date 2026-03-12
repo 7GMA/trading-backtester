@@ -5,3 +5,8 @@ data/cache.duckdb.wal
 __pycache__/
 *.pyc
 .DS_Store
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+data/report.html
