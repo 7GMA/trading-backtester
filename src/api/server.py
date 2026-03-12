@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field
 
 from src.backtest.engine import run_backtest
 from src.backtest.metrics import extract_metrics
+from src.backtest.multi_asset import run_multi_asset
+from src.backtest.comparison import compare_strategies
 from src.data.yahoo_client import fetch
 from src.strategy.executor import build_strategy
 from src.strategy.models import ParsedStrategy
@@ -289,6 +291,115 @@ Provide your honest analysis."""
         raise HTTPException(status_code=500, detail=f"Critique generation failed: {exc}")
 
     return CritiqueResponse(critique=critique_text)
+
+
+# ---------------------------------------------------------------------------
+# Multi-Asset endpoint
+# ---------------------------------------------------------------------------
+
+class MultiAssetRequest(BaseModel):
+    strategy: dict = Field(description="ParsedStrategy JSON")
+    assets: list[str] = Field(description="List of ticker symbols to test")
+    start: str = Field(default="2020-01-01", description="Backtest start date")
+    end: str | None = Field(default=None, description="Backtest end date")
+    cash: float = Field(default=10_000, description="Starting capital per asset")
+    commission: float = Field(default=0.001, description="Commission per trade")
+
+
+class MultiAssetResponse(BaseModel):
+    results: dict = Field(description="Per-asset results {symbol: {metrics, trades_count, error}}")
+    summary: dict = Field(description="Aggregate summary across all assets")
+    rankings: list[dict] = Field(description="Assets ranked by return")
+
+
+@app.post("/multi-asset", response_model=MultiAssetResponse)
+async def multi_asset(req: MultiAssetRequest):
+    """Run the same strategy across multiple assets."""
+    try:
+        parsed = ParsedStrategy.model_validate(req.strategy)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid strategy JSON: {exc}")
+
+    if not req.assets:
+        raise HTTPException(status_code=400, detail="At least one asset is required.")
+
+    try:
+        result = run_multi_asset(
+            parsed=parsed,
+            assets=req.assets,
+            start=req.start,
+            end=req.end,
+            cash=req.cash,
+            commission=req.commission,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Multi-asset backtest failed: {exc}")
+
+    # Strip equity curves from results (too large for JSON response)
+    clean_results = {}
+    for symbol, data in result["results"].items():
+        clean_results[symbol] = {
+            "metrics": data["metrics"],
+            "trades_count": data["trades_count"],
+            "error": data["error"],
+        }
+
+    return MultiAssetResponse(
+        results=clean_results,
+        summary=result["summary"],
+        rankings=result["rankings"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Comparison endpoint
+# ---------------------------------------------------------------------------
+
+class CompareRequest(BaseModel):
+    strategy_a: dict = Field(description="First strategy (ParsedStrategy JSON)")
+    strategy_b: dict = Field(description="Second strategy (ParsedStrategy JSON)")
+    start: str = Field(default="2020-01-01", description="Backtest start date")
+    end: str | None = Field(default=None, description="Backtest end date")
+    cash: float = Field(default=10_000, description="Starting capital")
+    commission: float = Field(default=0.001, description="Commission per trade")
+
+
+class CompareResponse(BaseModel):
+    a: dict = Field(description="Strategy A results {name, metrics, trades_count}")
+    b: dict = Field(description="Strategy B results {name, metrics, trades_count}")
+    comparison: list[dict] = Field(description="Metric-by-metric comparison")
+    winner: str = Field(description="'a', 'b', or 'tie'")
+
+
+@app.post("/compare", response_model=CompareResponse)
+async def compare(req: CompareRequest):
+    """Compare two strategies head-to-head on the same data."""
+    try:
+        parsed_a = ParsedStrategy.model_validate(req.strategy_a)
+        parsed_b = ParsedStrategy.model_validate(req.strategy_b)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid strategy JSON: {exc}")
+
+    try:
+        result = compare_strategies(
+            strategy_a=parsed_a,
+            strategy_b=parsed_b,
+            start=req.start,
+            end=req.end,
+            cash=req.cash,
+            commission=req.commission,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Comparison failed: {exc}")
+
+    return CompareResponse(
+        a={"name": result["a"]["name"], "metrics": result["a"]["metrics"], "trades_count": result["a"]["trades_count"]},
+        b={"name": result["b"]["name"], "metrics": result["b"]["metrics"], "trades_count": result["b"]["trades_count"]},
+        comparison=result["comparison"],
+        winner=result["winner"],
+    )
 
 
 # ---------------------------------------------------------------------------

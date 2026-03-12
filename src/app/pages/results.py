@@ -1,4 +1,4 @@
-"""Backtest Results page – charts and metrics."""
+"""Backtest Results page -- charts, metrics, and PDF export."""
 
 import streamlit as st
 import plotly.graph_objects as go
@@ -9,7 +9,7 @@ import pandas as pd
 st.title("Backtest Results")
 
 if "backtest_result" not in st.session_state:
-    st.info("Noch kein Backtest durchgefuehrt. Gehe zu 'Strategy Builder' und starte einen Backtest.")
+    st.info("No backtest run yet. Go to 'Strategy Builder' to run one.")
     st.stop()
 
 result = st.session_state["backtest_result"]
@@ -34,6 +34,32 @@ with col4:
     st.metric("Trades", metrics["num_trades"] or 0)
 with col5:
     st.metric("Win Rate", f"{metrics['win_rate_pct']:.1f}%" if metrics['win_rate_pct'] else "N/A")
+
+# --- PDF Export ---
+st.divider()
+col_export, col_spacer = st.columns([1, 3])
+with col_export:
+    if st.button("Export PDF Report", use_container_width=True):
+        with st.spinner("Generating PDF..."):
+            from src.backtest.pdf_report import generate_pdf_report
+            pdf_bytes = generate_pdf_report(
+                metrics=metrics,
+                equity_curve=equity,
+                trades=trades,
+                strategy_name=result["strategy_name"],
+                asset=result["asset"],
+            )
+            st.session_state["pdf_report"] = pdf_bytes
+
+if "pdf_report" in st.session_state:
+    with col_export:
+        st.download_button(
+            label="Download PDF",
+            data=st.session_state["pdf_report"],
+            file_name=f"backtest_{result['asset']}_{result['strategy_name'].replace(' ', '_')}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
 
 st.divider()
 
@@ -95,7 +121,7 @@ if not equity.empty and "Equity" in equity.columns:
 
 st.divider()
 
-# --- Detailed Metrics (responsive: stack on small screens) ---
+# --- Detailed Metrics ---
 col1, col2 = st.columns(2)
 
 with col1:

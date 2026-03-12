@@ -10,7 +10,7 @@ from src.strategy.templates import TEMPLATES
 st.title("Dashboard")
 
 # --- Cached Data Overview ---
-st.subheader("Gecachte Marktdaten")
+st.subheader("Cached Market Data")
 try:
     conn = get_connection()
     symbols = get_cached_symbols(conn)
@@ -20,44 +20,44 @@ try:
         for sym in symbols:
             dr = get_date_range(sym, conn)
             if dr:
-                rows.append({"Symbol": sym, "Von": str(dr[0]), "Bis": str(dr[1])})
+                rows.append({"Symbol": sym, "From": str(dr[0]), "To": str(dr[1])})
         conn.close()
 
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
     else:
         conn.close()
-        st.info("Noch keine Daten im Cache. Starte einen Backtest, um Daten zu laden.")
+        st.info("No data in cache yet. Run a backtest to load data.")
 except Exception as e:
-    st.error(f"Cache-Fehler: {e}")
+    st.error(f"Cache error: {e}")
 
 st.divider()
 
 # --- Quick Fetch ---
-st.subheader("Daten laden")
+st.subheader("Fetch Data")
 col1, col2, col3 = st.columns([2, 1, 1])
 with col1:
-    fetch_symbol = st.text_input("Symbol", value="AAPL", placeholder="z.B. AAPL, TSLA, BTC-USD")
+    fetch_symbol = st.text_input("Symbol", value="AAPL", placeholder="e.g. AAPL, TSLA, BTC-USD")
 with col2:
-    fetch_start = st.date_input("Von", value=None)
+    fetch_start = st.date_input("From", value=None)
 with col3:
-    if st.button("Laden", use_container_width=True):
+    if st.button("Fetch", use_container_width=True):
         from src.data.yahoo_client import fetch
         from src.data.indicators import add_default_indicators
 
-        with st.spinner(f"Lade {fetch_symbol}..."):
+        with st.spinner(f"Loading {fetch_symbol}..."):
             start = str(fetch_start) if fetch_start else "2020-01-01"
             df = fetch(fetch_symbol.upper(), start=start)
             if not df.empty:
                 df = add_default_indicators(df)
-                st.success(f"{fetch_symbol.upper()}: {len(df)} Tage geladen")
+                st.success(f"{fetch_symbol.upper()}: {len(df)} days loaded")
                 st.dataframe(df.tail(10), use_container_width=True)
             else:
-                st.error(f"Keine Daten fuer {fetch_symbol} gefunden.")
+                st.error(f"No data found for {fetch_symbol}.")
 
 st.divider()
 
 # --- Available Templates ---
-st.subheader("Verfuegbare Strategie-Templates")
+st.subheader("Strategy Templates")
 for key, tmpl in TEMPLATES.items():
     with st.expander(f"**{tmpl.name}** -- {tmpl.asset}"):
         st.write(tmpl.description)
@@ -74,12 +74,12 @@ for key, tmpl in TEMPLATES.items():
 # --- Last Backtest Result ---
 if "backtest_result" in st.session_state:
     st.divider()
-    st.subheader("Letzter Backtest")
+    st.subheader("Last Backtest")
     r = st.session_state["backtest_result"]
     m = r["metrics"]
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Strategie", r["strategy_name"])
+        st.metric("Strategy", r["strategy_name"])
     with col2:
         st.metric("Return", f"{m['total_return_pct']:.1f}%" if m['total_return_pct'] else "N/A")
     with col3:
