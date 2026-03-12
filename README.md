@@ -17,8 +17,11 @@ A natural language-powered backtesting engine. Describe your trading strategy in
 - **Natural language input** — No coding required. Describe strategies in English or German.
 - **AI Strategy Critic** — After each backtest, Claude analyzes your results and tells you *why* your strategy works or doesn't. Flags overfitting, low sample size, and suggests improvements.
 - **Walk-forward validation** — Splits data into train/test windows to detect overfitting. Not just one backtest, but proof that your strategy generalizes.
+- **Multi-asset backtesting** — Run the same strategy across multiple assets at once. See which stocks, ETFs, or crypto your strategy works best on.
+- **Strategy comparison** — Test two strategies head-to-head on the same data with weighted scoring across Sharpe, return, drawdown, and more.
+- **PDF report export** — Generate professional multi-page PDF reports with equity curves, metrics, and trade logs.
 - **European market focus** — Supports DAX, Euro Stoxx, and XETRA-traded securities alongside US stocks and crypto.
-- **REST API** — Full FastAPI backend. Integrate backtesting into your own tools.
+- **REST API** — Full FastAPI backend with 7 endpoints. Integrate backtesting into your own tools.
 
 ## Quick Start
 
@@ -103,6 +106,24 @@ resp = requests.post("http://localhost:8000/critique", json={
     "trades_count": result["trades_count"]
 })
 print(resp.json()["critique"])
+
+# Multi-asset: test one strategy across many stocks
+resp = requests.post("http://localhost:8000/multi-asset", json={
+    "strategy": strategy,
+    "assets": ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA"],
+    "start": "2020-01-01",
+    "cash": 10000
+})
+print(resp.json()["rankings"])
+
+# Compare two strategies head-to-head
+resp = requests.post("http://localhost:8000/compare", json={
+    "strategy_a": strategy_a,
+    "strategy_b": strategy_b,
+    "start": "2020-01-01",
+    "cash": 10000
+})
+print(f"Winner: {resp.json()['winner']}")
 ```
 
 ## Supported Indicators
@@ -129,15 +150,23 @@ Any ticker Yahoo Finance supports:
 
 ```
 src/
-├── api/server.py          # FastAPI REST API
+├── api/server.py          # FastAPI REST API (7 endpoints)
 ├── app/                   # Streamlit dashboard
 │   ├── main.py
 │   └── pages/
+│       ├── strategy.py    # Strategy builder
+│       ├── results.py     # Backtest results + PDF export
+│       ├── multi_asset.py # Multi-asset backtesting
+│       ├── compare.py     # Strategy comparison
+│       └── dashboard.py   # Overview
 ├── backtest/
 │   ├── engine.py          # Backtesting wrapper
 │   ├── metrics.py         # Performance metrics
 │   ├── reports.py         # HTML report generation
-│   └── walk_forward.py    # Walk-forward validation
+│   ├── walk_forward.py    # Walk-forward validation
+│   ├── multi_asset.py     # Multi-asset backtesting
+│   ├── comparison.py      # Strategy comparison engine
+│   └── pdf_report.py      # PDF report generation
 ├── data/
 │   ├── yahoo_client.py    # Yahoo Finance + caching
 │   ├── cache.py           # DuckDB cache layer
@@ -167,6 +196,7 @@ src/
 
 ```bash
 pytest tests/ -v
+# 78 tests across 4 test files
 ```
 
 ## Limitations
