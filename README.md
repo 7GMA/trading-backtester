@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)](#api-endpoints)
 
-A natural language-powered backtesting engine. Describe your trading strategy in plain English (or German), and get instant backtesting results with honest AI-powered critique.
+Describe your trading strategy in plain text and get instant backtesting results with AI-powered critique.
 
 ```
 "Buy Apple when RSI drops below 30. Sell at 10% profit or 5% loss."
