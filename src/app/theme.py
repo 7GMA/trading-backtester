@@ -64,6 +64,19 @@ def inject_css():
         .stDataFrame { border: 1px solid #21262d; border-radius: 8px; }
         hr { border-color: #21262d !important; }
 
+        /* Hide textarea bottom-right instructions (Cmd+Enter hint) */
+        .stTextArea div[data-testid="stWidgetLabel"] + div > div > div.st-emotion-cache-1gulkj5,
+        .stTextArea [data-testid="InputInstructions"] {
+            display: none !important;
+        }
+
+        /* AI usage badge */
+        .ai-usage {
+            font-size: 0.78rem;
+            color: #8b949e;
+            margin: 0;
+        }
+
         section[data-testid="stSidebar"] {
             background-color: #161b22;
             border-right: 1px solid #21262d;

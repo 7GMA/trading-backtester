@@ -67,7 +67,7 @@ SYSTEM_PROMPT = f"""You are a trading strategy parser. Your task is to translate
 
 def parse_strategy(
     user_input: str,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "claude-haiku-4-5-20251001",
     api_key: str | None = None,
 ) -> tuple[ParsedStrategy, list[str], dict]:
     """

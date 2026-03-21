@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import json
+import datetime
 import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -22,11 +23,64 @@ st.set_page_config(
 
 inject_css()
 
-# --- Session State ---
-if "api_costs" not in st.session_state:
-    st.session_state["api_costs"] = {"requests": 0, "input_tokens": 0, "output_tokens": 0}
+# ─────────────────────────────────────────────
+# GLOBAL AI RATE LIMIT (50 requests/day, resets at midnight)
+# ─────────────────────────────────────────────
+DAILY_AI_LIMIT = 50
+_USAGE_FILE = Path(__file__).parent / ".ai_usage.json"
+_LOG_FILE = Path(__file__).parent / ".ai_requests.log"
 
-DAILY_BUDGET_USD = 0.30
+
+def _current_period() -> str:
+    """Return the current usage period key. Resets daily at 07:59."""
+    now = datetime.datetime.now()
+    reset_time = now.replace(hour=7, minute=59, second=0, microsecond=0)
+    if now < reset_time:
+        period = (now - datetime.timedelta(days=1)).date()
+    else:
+        period = now.date()
+    return str(period)
+
+
+def _load_usage() -> dict:
+    period = _current_period()
+    try:
+        data = json.loads(_USAGE_FILE.read_text())
+        if data.get("date") != period:
+            return {"date": period, "count": 0}
+        return data
+    except Exception:
+        return {"date": period, "count": 0}
+
+
+def _save_usage(data: dict):
+    _USAGE_FILE.write_text(json.dumps(data))
+
+
+def ai_requests_remaining() -> int:
+    return max(0, DAILY_AI_LIMIT - _load_usage()["count"])
+
+
+def increment_ai_usage():
+    data = _load_usage()
+    data["count"] += 1
+    _save_usage(data)
+
+
+def log_ai_request(prompt: str, usage: dict):
+    entry = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "prompt": prompt[:200],
+        "input_tokens": usage.get("input_tokens", 0),
+        "output_tokens": usage.get("output_tokens", 0),
+        "cost_usd": round(
+            usage.get("input_tokens", 0) / 1_000_000 * 1.0
+            + usage.get("output_tokens", 0) / 1_000_000 * 5.0, 6
+        ),
+    }
+    with open(_LOG_FILE, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
 
 # ─────────────────────────────────────────────
 # HEADER
@@ -53,13 +107,15 @@ strategy_text = st.text_area(
     "Describe your strategy",
     value=st.session_state.get("strategy_input", ""),
     height=100,
+    max_chars=200,
     placeholder='e.g. "Buy Apple when RSI drops below 30. Sell at 10% profit or 5% loss."',
     label_visibility="collapsed",
 )
 
+remaining = ai_requests_remaining()
 col_ai, col_parse = st.columns([1, 1])
 with col_ai:
-    use_ai = st.checkbox("Use Claude AI Parser", value=False, help="Uses Claude API for complex strategies")
+    use_ai = st.checkbox(f"Use Claude AI Parser ({remaining}/{DAILY_AI_LIMIT} left)", value=False, help="Uses Claude API for complex strategies")
 with col_parse:
     parse_clicked = st.button("Parse Strategy", type="primary", use_container_width=True)
 
@@ -71,14 +127,12 @@ if parse_clicked:
         with st.spinner("Parsing..."):
             try:
                 if use_ai:
-                    if st.session_state.get("budget_exceeded"):
-                        st.error("Daily AI budget exceeded. Use the offline parser.")
+                    if ai_requests_remaining() <= 0:
+                        st.error("Daily AI limit reached (50 requests). Resets at midnight. Use the offline parser instead.")
                         st.stop()
                     strategy, warnings, usage = parse_strategy(strategy_text)
-                    costs = st.session_state["api_costs"]
-                    costs["requests"] += 1
-                    costs["input_tokens"] += usage.get("input_tokens", 0)
-                    costs["output_tokens"] += usage.get("output_tokens", 0)
+                    increment_ai_usage()
+                    log_ai_request(strategy_text, usage)
                 else:
                     result = parse_strategy_offline(strategy_text)
                     if result is None:

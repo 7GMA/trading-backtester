@@ -11,3 +11,5 @@ build/
 .pytest_cache/
 data/report.html
 .mcp.json
+.ai_usage.json
+.ai_requests.log

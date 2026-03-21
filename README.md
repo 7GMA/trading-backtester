@@ -1,52 +1,48 @@
 # Trading Strategy Backtester
 
-[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-78%20passed-brightgreen.svg)](#running-tests)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)](#api-endpoints)
 
-Describe your trading strategy in plain text and get instant backtesting results with AI-powered critique.
+Describe a trading strategy in plain English, backtest it on real market data, and see how it would have performed — no coding required.
 
 ```
 "Buy Apple when RSI drops below 30. Sell at 10% profit or 5% loss."
-                    |
-         Strategy parsed -> Backtest run -> AI critique
-                    |
-  "Only 16 trades over 6 years. Low sample size.
-   Strategy captured 4.4% vs 262% buy-and-hold.
-   Consider adding a trend filter (SMA 200)."
+                    ↓
+         Parsed → Backtested → Charts + Metrics
+                    ↓
+  Return: 4.4% · Sharpe: 0.12 · 16 Trades · Win Rate: 56%
 ```
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **NL Strategy Input** | Describe strategies in English or German. No coding required. |
-| **AI Strategy Critic** | Claude analyzes results: flags overfitting, low sample size, suggests improvements |
-| **Walk-Forward Validation** | Train/test split across multiple windows to detect overfitting |
-| **Multi-Asset Testing** | Run one strategy across FAANG+, ETFs, Crypto, or DAX in one click |
-| **Strategy Comparison** | Two strategies head-to-head with weighted scoring (Sharpe 3x, Return 2x, Drawdown 2x) |
-| **PDF Reports** | 4-page professional report: summary, equity curve, metrics, trade log |
-| **REST API** | 7 FastAPI endpoints with Swagger docs at `/docs` |
-| **EU/German Focus** | Supports DAX, XETRA securities alongside US stocks and crypto |
-| **Cost Transparency** | Live budget tracker -- users see exactly what AI requests cost |
+- **Write strategies in plain text** — type what you'd tell a trader, the app figures out the rest
+- **Works without AI** — common patterns (RSI, MACD, Golden Cross) are parsed offline, no API key needed
+- **AI parsing for complex input** — Claude Haiku handles anything the offline parser can't
+- **Real market data** — pulls live prices from Yahoo Finance for any stock, ETF, or crypto
+- **Interactive charts** — equity curve, drawdown, and buy & hold comparison in dark-themed Plotly charts
+- **PDF export** — download a professional backtest report
+- **REST API** — 7 endpoints with Swagger docs, so you can integrate it into your own tools
+- **Test across assets** — run the same strategy on AAPL, TSLA, BTC-USD and compare results
+- **50 free AI requests/day** — built-in rate limiting with usage tracking
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/trading-backtester.git
+git clone https://github.com/7GMA/trading-backtester.git
 cd trading-backtester
 
-python3.12 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Optional: add API key for AI features
-cp .env.example .env
-# Edit .env with your Anthropic API key
-
-# Run the dashboard
+# Run the app (works without API key — use the offline parser)
 streamlit run src/app/main.py
+
+# Optional: enable AI parsing
+cp .env.example .env
+# Add your Anthropic API key to .env
 ```
 
 **With Docker:**
@@ -61,8 +57,8 @@ docker compose up
 
 ```
 +-----------------------------------------------------+
-|               Streamlit Dashboard (5 pages)          |
-|  Strategy Builder | Results | Multi-Asset | Compare  |
+|          Streamlit Single-Page App (Dark Theme)      |
+|  Templates | Strategy Input | Backtest | Results     |
 +------------------------+----------------------------+
                          |
 +------------------------v----------------------------+
@@ -72,14 +68,14 @@ docker compose up
                          |
 +------------------------v----------------------------+
 |                   Core Engine                        |
-|  NL Parser       Backtesting      LLM Critic        |
-|  (Claude API     Engine           (Claude Sonnet)    |
+|  NL Parser       Backtesting      PDF Reports       |
+|  (Claude Haiku   Engine           (matplotlib)       |
 |   + Offline)     (backtesting.py)                    |
 +------------------------+----------------------------+
                          |
 +------------------------v----------------------------+
 |                   Data Layer                         |
-|  Yahoo Finance -> DuckDB Cache -> pandas-ta          |
+|  Yahoo Finance -> DuckDB Cache -> pandas Indicators  |
 +-----------------------------------------------------+
 ```
 
@@ -161,14 +157,9 @@ Any ticker Yahoo Finance supports:
 ```
 src/
 ├── api/server.py            # FastAPI REST API (7 endpoints)
-├── app/                     # Streamlit dashboard
-│   ├── main.py              # Entry point + cost tracker
-│   └── pages/
-│       ├── strategy.py      # NL strategy builder
-│       ├── results.py       # Results + PDF export
-│       ├── multi_asset.py   # Multi-asset backtesting
-│       ├── compare.py       # Strategy comparison
-│       └── dashboard.py     # Overview + data cache
+├── app/
+│   ├── main.py              # Single-page Streamlit app
+│   └── theme.py             # Dark theme CSS + Plotly layout
 ├── backtest/
 │   ├── engine.py            # Backtesting wrapper
 │   ├── metrics.py           # Performance metrics (20+)
@@ -180,9 +171,9 @@ src/
 ├── data/
 │   ├── yahoo_client.py      # Yahoo Finance + DuckDB caching
 │   ├── cache.py             # DuckDB cache layer
-│   └── indicators.py        # Technical indicators (pandas-ta)
+│   └── indicators.py        # Technical indicators (pure pandas)
 └── strategy/
-    ├── parser.py            # NL -> Strategy (Claude + offline regex)
+    ├── parser.py            # NL -> Strategy (Claude Haiku + offline regex)
     ├── executor.py          # Strategy -> executable backtest class
     ├── models.py            # Pydantic models + validation schema
     ├── validator.py         # Strategy validation
@@ -199,14 +190,14 @@ tests/                       # 78 tests
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Python 3.12 |
+| Language | Python 3.10+ |
 | Backtesting | backtesting.py |
-| Indicators | pandas-ta (130+) |
+| Indicators | Pure pandas/numpy |
 | Data Cache | DuckDB |
 | Market Data | Yahoo Finance (yfinance) |
-| AI | Claude API (Anthropic) |
+| AI | Claude Haiku 4.5 (Anthropic) |
 | API | FastAPI + Uvicorn |
-| Frontend | Streamlit |
+| Frontend | Streamlit (dark theme) |
 | Charts | Plotly |
 | Deployment | Docker + docker-compose |
 
@@ -216,17 +207,6 @@ tests/                       # 78 tests
 pytest tests/ -v
 # 78 tests, 4 files, <10s runtime
 ```
-
-## Consulting & Integration
-
-This project is available for white-label integration and custom consulting work:
-
-- **Custom strategy development** -- build proprietary strategies for your firm
-- **API integration** -- embed backtesting into your existing platform
-- **Data source upgrades** -- swap Yahoo Finance for Polygon.io, EODHD, or your proprietary feed
-- **Multi-language support** -- extend NL parsing beyond English/German
-
-For inquiries, open an issue or reach out directly.
 
 ## Disclaimer
 
