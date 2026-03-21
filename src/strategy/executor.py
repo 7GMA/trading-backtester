@@ -59,10 +59,11 @@ def build_strategy(parsed: ParsedStrategy) -> type[Strategy]:
         _indicator_keys = indicator_keys
 
         def init(self):
-            import pandas_ta as ta
+            from src.data.indicators import add_rsi, add_macd, add_sma, add_ema, add_bollinger, add_atr
             close = pd.Series(self.data.Close, index=self.data.df.index)
             high = pd.Series(self.data.High, index=self.data.df.index)
             low = pd.Series(self.data.Low, index=self.data.df.index)
+            _df = pd.DataFrame({"Close": close, "High": high, "Low": low})
 
             computed = set()
             for cond in list(self._entry_rule.conditions) + list(self._exit_rule.conditions):
@@ -72,8 +73,8 @@ def build_strategy(parsed: ParsedStrategy) -> type[Strategy]:
                     period = cond.params.get("period", 14)
                     key = f"RSI_{period}"
                     if key not in computed:
-                        data = ta.rsi(close, length=period)
-                        setattr(self, _ind_attr_name(key), self.I(lambda d=data: d, name=key))
+                        tmp = add_rsi(_df.copy(), length=period)
+                        setattr(self, _ind_attr_name(key), self.I(lambda d=tmp[key]: d, name=key))
                         computed.add(key)
 
                 elif ind == "MACD":
@@ -83,9 +84,9 @@ def build_strategy(parsed: ParsedStrategy) -> type[Strategy]:
                     macd_key = f"MACD_{f}_{s}_{sg}"
                     sig_key = f"MACDs_{f}_{s}_{sg}"
                     if macd_key not in computed:
-                        macd_df = ta.macd(close, fast=f, slow=s, signal=sg)
-                        setattr(self, _ind_attr_name(macd_key), self.I(lambda d=macd_df.iloc[:, 0]: d, name=macd_key))
-                        setattr(self, _ind_attr_name(sig_key), self.I(lambda d=macd_df.iloc[:, 2]: d, name=sig_key))
+                        tmp = add_macd(_df.copy(), fast=f, slow=s, signal=sg)
+                        setattr(self, _ind_attr_name(macd_key), self.I(lambda d=tmp[macd_key]: d, name=macd_key))
+                        setattr(self, _ind_attr_name(sig_key), self.I(lambda d=tmp[sig_key]: d, name=sig_key))
                         computed.add(macd_key)
                         computed.add(sig_key)
 
@@ -93,43 +94,42 @@ def build_strategy(parsed: ParsedStrategy) -> type[Strategy]:
                     period = cond.params.get("period", 50)
                     key = f"SMA_{period}"
                     if key not in computed:
-                        data = ta.sma(close, length=period)
-                        setattr(self, _ind_attr_name(key), self.I(lambda d=data: d, name=key))
+                        tmp = add_sma(_df.copy(), length=period)
+                        setattr(self, _ind_attr_name(key), self.I(lambda d=tmp[key]: d, name=key))
                         computed.add(key)
-                    # Also compute the comparison target SMA
                     if isinstance(cond.value, str) and cond.value.upper().startswith("SMA_"):
                         other_key = cond.value.upper()
                         if other_key not in computed:
                             other_period = int(other_key.split("_")[1])
-                            other_data = ta.sma(close, length=other_period)
-                            setattr(self, _ind_attr_name(other_key), self.I(lambda d=other_data: d, name=other_key))
+                            tmp = add_sma(_df.copy(), length=other_period)
+                            setattr(self, _ind_attr_name(other_key), self.I(lambda d=tmp[other_key]: d, name=other_key))
                             computed.add(other_key)
 
                 elif ind == "EMA":
                     period = cond.params.get("period", 20)
                     key = f"EMA_{period}"
                     if key not in computed:
-                        data = ta.ema(close, length=period)
-                        setattr(self, _ind_attr_name(key), self.I(lambda d=data: d, name=key))
+                        tmp = add_ema(_df.copy(), length=period)
+                        setattr(self, _ind_attr_name(key), self.I(lambda d=tmp[key]: d, name=key))
                         computed.add(key)
 
                 elif ind == "BB":
                     period = cond.params.get("period", 20)
-                    std = cond.params.get("std", 2.0)
-                    bbl_key = f"BBL_{period}"
+                    std_val = cond.params.get("std", 2.0)
+                    bbl_key = f"BBL_{period}_{std_val}"
                     if bbl_key not in computed:
-                        bb = ta.bbands(close, length=period, std=std)
-                        setattr(self, _ind_attr_name(f"BBL_{period}"), self.I(lambda d=bb.iloc[:, 0]: d, name=f"BBL_{period}"))
-                        setattr(self, _ind_attr_name(f"BBM_{period}"), self.I(lambda d=bb.iloc[:, 1]: d, name=f"BBM_{period}"))
-                        setattr(self, _ind_attr_name(f"BBU_{period}"), self.I(lambda d=bb.iloc[:, 2]: d, name=f"BBU_{period}"))
-                        computed.update([f"BBL_{period}", f"BBM_{period}", f"BBU_{period}"])
+                        tmp = add_bollinger(_df.copy(), length=period, std=std_val)
+                        setattr(self, _ind_attr_name(f"BBL_{period}_{std_val}"), self.I(lambda d=tmp[f"BBL_{period}_{std_val}"]: d, name=f"BBL_{period}"))
+                        setattr(self, _ind_attr_name(f"BBM_{period}_{std_val}"), self.I(lambda d=tmp[f"BBM_{period}_{std_val}"]: d, name=f"BBM_{period}"))
+                        setattr(self, _ind_attr_name(f"BBU_{period}_{std_val}"), self.I(lambda d=tmp[f"BBU_{period}_{std_val}"]: d, name=f"BBU_{period}"))
+                        computed.update([f"BBL_{period}_{std_val}", f"BBM_{period}_{std_val}", f"BBU_{period}_{std_val}"])
 
                 elif ind == "ATR":
                     period = cond.params.get("period", 14)
                     key = f"ATR_{period}"
                     if key not in computed:
-                        data = ta.atr(high, low, close, length=period)
-                        setattr(self, _ind_attr_name(key), self.I(lambda d=data: d, name=key))
+                        tmp = add_atr(_df.copy(), length=period)
+                        setattr(self, _ind_attr_name(key), self.I(lambda d=tmp[key]: d, name=key))
                         computed.add(key)
 
         def _get_ind(self, key: str):

@@ -1,12 +1,18 @@
-"""Technical indicators using pandas-ta."""
+"""Technical indicators using pure pandas (no external dependency)."""
 
 import pandas as pd
-import pandas_ta as ta
+import numpy as np
 
 
 def add_rsi(df: pd.DataFrame, length: int = 14, col: str = "Close") -> pd.DataFrame:
     """Add RSI column to DataFrame."""
-    df[f"RSI_{length}"] = ta.rsi(df[col], length=length)
+    delta = df[col].diff()
+    gain = delta.where(delta > 0, 0.0)
+    loss = -delta.where(delta < 0, 0.0)
+    avg_gain = gain.ewm(alpha=1 / length, min_periods=length).mean()
+    avg_loss = loss.ewm(alpha=1 / length, min_periods=length).mean()
+    rs = avg_gain / avg_loss
+    df[f"RSI_{length}"] = 100 - (100 / (1 + rs))
     return df
 
 
@@ -18,33 +24,51 @@ def add_macd(
     col: str = "Close",
 ) -> pd.DataFrame:
     """Add MACD, MACD Signal, and MACD Histogram columns."""
-    macd = ta.macd(df[col], fast=fast, slow=slow, signal=signal)
-    df = pd.concat([df, macd], axis=1)
+    ema_fast = df[col].ewm(span=fast, adjust=False).mean()
+    ema_slow = df[col].ewm(span=slow, adjust=False).mean()
+    macd = ema_fast - ema_slow
+    macd_signal = macd.ewm(span=signal, adjust=False).mean()
+    macd_hist = macd - macd_signal
+    df[f"MACD_{fast}_{slow}_{signal}"] = macd
+    df[f"MACDs_{fast}_{slow}_{signal}"] = macd_signal
+    df[f"MACDh_{fast}_{slow}_{signal}"] = macd_hist
     return df
 
 
 def add_sma(df: pd.DataFrame, length: int = 50, col: str = "Close") -> pd.DataFrame:
     """Add Simple Moving Average."""
-    df[f"SMA_{length}"] = ta.sma(df[col], length=length)
+    df[f"SMA_{length}"] = df[col].rolling(window=length).mean()
     return df
 
 
 def add_ema(df: pd.DataFrame, length: int = 20, col: str = "Close") -> pd.DataFrame:
     """Add Exponential Moving Average."""
-    df[f"EMA_{length}"] = ta.ema(df[col], length=length)
+    df[f"EMA_{length}"] = df[col].ewm(span=length, adjust=False).mean()
     return df
 
 
 def add_bollinger(df: pd.DataFrame, length: int = 20, std: float = 2.0, col: str = "Close") -> pd.DataFrame:
     """Add Bollinger Bands (Lower, Mid, Upper)."""
-    bb = ta.bbands(df[col], length=length, std=std)
-    df = pd.concat([df, bb], axis=1)
+    sma = df[col].rolling(window=length).mean()
+    rolling_std = df[col].rolling(window=length).std()
+    df[f"BBL_{length}_{std}"] = sma - std * rolling_std
+    df[f"BBM_{length}_{std}"] = sma
+    df[f"BBU_{length}_{std}"] = sma + std * rolling_std
     return df
 
 
 def add_atr(df: pd.DataFrame, length: int = 14) -> pd.DataFrame:
     """Add Average True Range."""
-    df[f"ATR_{length}"] = ta.atr(df["High"], df["Low"], df["Close"], length=length)
+    high = df["High"]
+    low = df["Low"]
+    close = df["Close"]
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low - prev_close).abs(),
+    ], axis=1).max(axis=1)
+    df[f"ATR_{length}"] = tr.rolling(window=length).mean()
     return df
 
 

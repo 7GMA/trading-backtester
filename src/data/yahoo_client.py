@@ -1,5 +1,7 @@
 """Yahoo Finance data fetcher with DuckDB caching."""
 
+from __future__ import annotations
+
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta

@@ -7,8 +7,6 @@ import numpy as np
 from backtesting import Backtest, Strategy
 from backtesting.lib import crossover
 
-from src.data.indicators import add_rsi, add_macd, add_sma, add_ema, add_bollinger, add_atr
-
 
 class StrategyBase(Strategy):
     """Base strategy class with helper methods for indicator access."""
@@ -33,8 +31,9 @@ class RSIOversold(StrategyBase):
 
     def init(self):
         close = pd.Series(self.data.Close, index=self.data.df.index)
-        import pandas_ta as ta
-        rsi = ta.rsi(close, length=self.rsi_length)
+        from src.data.indicators import add_rsi
+        tmp = add_rsi(pd.DataFrame({"Close": close}), length=self.rsi_length)
+        rsi = tmp[f"RSI_{self.rsi_length}"]
         self.rsi = self.I(lambda: rsi, name=f"RSI_{self.rsi_length}")
 
     def next(self):
@@ -57,10 +56,12 @@ class MACDCrossover(StrategyBase):
 
     def init(self):
         close = pd.Series(self.data.Close, index=self.data.df.index)
-        import pandas_ta as ta
-        macd_df = ta.macd(close, fast=self.fast, slow=self.slow, signal=self.signal)
-        self.macd = self.I(lambda: macd_df.iloc[:, 0], name="MACD")
-        self.macd_signal = self.I(lambda: macd_df.iloc[:, 2], name="MACD_Signal")
+        from src.data.indicators import add_macd
+        tmp = add_macd(pd.DataFrame({"Close": close}), fast=self.fast, slow=self.slow, signal=self.signal)
+        macd_key = f"MACD_{self.fast}_{self.slow}_{self.signal}"
+        sig_key = f"MACDs_{self.fast}_{self.slow}_{self.signal}"
+        self.macd = self.I(lambda: tmp[macd_key], name="MACD")
+        self.macd_signal = self.I(lambda: tmp[sig_key], name="MACD_Signal")
 
     def next(self):
         if not self.position:
@@ -80,9 +81,11 @@ class SMACrossover(StrategyBase):
 
     def init(self):
         close = pd.Series(self.data.Close, index=self.data.df.index)
-        import pandas_ta as ta
-        self.sma_fast = self.I(lambda: ta.sma(close, length=self.fast_period), name=f"SMA_{self.fast_period}")
-        self.sma_slow = self.I(lambda: ta.sma(close, length=self.slow_period), name=f"SMA_{self.slow_period}")
+        from src.data.indicators import add_sma
+        tmp_fast = add_sma(pd.DataFrame({"Close": close}), length=self.fast_period)
+        tmp_slow = add_sma(pd.DataFrame({"Close": close}), length=self.slow_period)
+        self.sma_fast = self.I(lambda: tmp_fast[f"SMA_{self.fast_period}"], name=f"SMA_{self.fast_period}")
+        self.sma_slow = self.I(lambda: tmp_slow[f"SMA_{self.slow_period}"], name=f"SMA_{self.slow_period}")
 
     def next(self):
         if not self.position:

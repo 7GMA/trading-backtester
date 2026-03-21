@@ -1,5 +1,7 @@
 """Pre-built strategy templates for quick use."""
 
+from __future__ import annotations
+
 from src.strategy.models import (
     ParsedStrategy, EntryRule, ExitRule, IndicatorCondition, Operator, LogicOperator,
 )
