@@ -1,7 +1,7 @@
 [project]
 name = "trading-backtester"
 version = "1.0.0"
-description = "Natural language-powered trading strategy backtester with AI critique"
+description = "Trading strategy backtester with Claude API"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 keywords = ["trading", "backtesting", "natural-language", "claude", "ai", "finance"]
@@ -15,7 +15,6 @@ classifiers = [
 dependencies = [
     "yfinance>=0.2.36",
     "duckdb>=0.10.0",
-    "pandas-ta>=0.3.14b1",
     "pandas>=2.0.0",
     "backtesting>=0.6.0",
     "quantstats>=0.0.62",
